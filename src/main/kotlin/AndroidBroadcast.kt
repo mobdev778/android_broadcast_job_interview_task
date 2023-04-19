@@ -41,6 +41,7 @@ fun main() {
             println("[$i] requestAsync, delay: ${System.currentTimeMillis() - startTime}")
             delay(100L)
         }
+        delay(1000L)
     }
 }
 

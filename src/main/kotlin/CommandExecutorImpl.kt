@@ -9,5 +9,8 @@ class CommandExecutorImpl(private val bluDevice: BluDevice): CommandExecutor {
             RequestHandler(bluDevice, url)
         }
         requestHandler.addListener(onResponse)
+        requestHandler.setCompleteListener {
+            urlRequestHandlerMap.remove(url)
+        }
     }
 }

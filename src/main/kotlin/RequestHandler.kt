@@ -1,4 +1,5 @@
 import kotlinx.coroutines.*
+import java.util.concurrent.ConcurrentLinkedDeque
 
 class RequestHandler(
     private val blueDevice: BluDevice,
@@ -6,19 +7,18 @@ class RequestHandler(
 ) {
 
     private val lock = Any()
-    private val dequeLock = Any()
-    private val listeners: ArrayDeque<(String) -> Unit> = ArrayDeque(3)
+    private val listeners: ConcurrentLinkedDeque<(String) -> Unit> = ConcurrentLinkedDeque()
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
     private var asyncCall: Deferred<String>? = null
     private var notifyJob: Job? = null
 
+    private var onComplete: ((String) -> Unit)? = null
+
     fun addListener(onResponse: (String) -> Unit) {
         synchronized(lock) {
-            synchronized(dequeLock) {
-                listeners.addLast(onResponse)
-            }
+            listeners.addLast(onResponse)
 
             if (asyncCall == null) {
                 asyncCall = coroutineScope.async {
@@ -34,13 +34,17 @@ class RequestHandler(
         }
     }
 
+    fun setCompleteListener(onComplete: (String) -> Unit) {
+        this.onComplete = onComplete
+    }
+
     private suspend fun notifyListeners() {
         val result = asyncCall!!.await()
-        synchronized(dequeLock) {
-            while (listeners.isNotEmpty()) {
-                val listener = listeners.removeFirst()
-                listener.invoke(result)
-            }
+        while (listeners.isNotEmpty()) {
+            val listener = listeners.removeFirst()
+            listener.invoke(result)
         }
+        asyncCall = null
+        this.onComplete?.invoke(url)
     }
 }
